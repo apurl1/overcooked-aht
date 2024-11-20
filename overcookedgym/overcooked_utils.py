@@ -1,13 +1,13 @@
-LAYOUT_LIST = ['corridor', 'five_by_five', 'mdp_test', 'multiplayer_schelling',
-               'random0', 'random1', 'random2', 'random3', 'scenario1_s',
-               'scenario2', 'scenario2_s', 'scenario3', 'scenario4',
-               'schelling', 'schelling_s', 'simple', 'simple_single',
-               'simple_tomato', 'small_corridor', 'unident', 'unident_s']
+import os
 
-NAME_TRANSLATION = {
-    "cramped_room": "simple",
-    "asymmetric_advantages": "unident_s",
-    "coordination_ring": "random1",
-    "forced_coordination": "random0",
-    "counter_circuit": "random3",
-}
+def list_files(directory):
+    file_arr = []
+    for filename in os.listdir(directory):
+        filepath = os.path.join(directory, filename)
+        if os.path.isfile(filepath):
+            file_arr.append(filename)
+    return file_arr
+
+layout_files = list_files('overcookedgym/overcooked_ai/src/overcooked_ai_py/data/layouts')
+
+LAYOUT_LIST = [os.path.splitext(filename)[0] for filename in layout_files]
