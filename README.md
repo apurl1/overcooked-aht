@@ -5,8 +5,8 @@ This repository has code based on PantheonRL, Overcooked AI, and HSP to train PP
 ## Installation
 ```
 # Clone Overcooked AHT
-git clone
-cd 
+git clone https://github.com/apurl1/overcooked-aht.git
+cd overcooked-aht
 
 # Create conda environment
 conda env create -f environment.yml
