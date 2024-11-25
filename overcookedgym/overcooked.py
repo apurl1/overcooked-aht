@@ -54,6 +54,9 @@ class OvercookedMultiEnv(SimultaneousEnv):
         high = np.ones(obs_shape, dtype=np.float32) * np.inf  # max(self.mdp.soup_cooking_time, self.mdp.num_items_for_soup, 5)
 
         return gym.spaces.Box(-high, high, dtype=np.float64)
+    
+    def get_game_stats(self):
+        return self.base_env.game_stats
 
     def multi_step(self, ego_action, alt_action):
         """
