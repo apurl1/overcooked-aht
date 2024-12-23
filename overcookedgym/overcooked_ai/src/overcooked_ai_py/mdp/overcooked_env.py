@@ -168,6 +168,19 @@ class OvercookedEnv(object):
             info_level=self.info_level,
             num_mdp=self.num_mdp,
         )
+    
+    def __deepcopy__(self, memo):
+        #print('copying')
+        cls = self.__class__
+        result = cls.__new__(cls)
+        memo[id(self)] = result
+        for k, v in self.__dict__.items():
+            #print(k)
+            if k == 'visualizer':  # Skip pickling the font object
+                result.visualizer = None 
+            else:
+                setattr(result, k, copy.deepcopy(v, memo))
+        return result
 
     #############################
     # ENV VISUALIZATION METHODS #

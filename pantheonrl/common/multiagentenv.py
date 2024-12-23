@@ -171,7 +171,7 @@ class MultiAgentEnv(gym.Env, ABC):
 
     def step(
                 self,
-                action: np.ndarray
+                action: np.ndarray,
             ) -> Tuple[Union[Observation, Any], float, bool, Dict]:
         """
         Run one timestep from the perspective of the ego-agent. This involves
@@ -198,8 +198,8 @@ class MultiAgentEnv(gym.Env, ABC):
 
             self._update_players(rews, done)
 
-            ego_rew += rews[self.ego_ind] if self.ego_moved \
-                else self.total_rews[self.ego_ind]
+            ego_rew += rews[self.ego_ind] if self.ego_moved else self.total_rews[self.ego_ind]
+            #ego_rew += np.sum(rews)
 
             self.ego_moved = True
 
@@ -213,6 +213,12 @@ class MultiAgentEnv(gym.Env, ABC):
         ego_obs = self._obs[self._players.index(self.ego_ind)]
         self._old_ego_obs = ego_obs
         return self.ego_extractor(ego_obs), ego_rew, done, info
+    
+    def step_dr(self, actions: np.ndarray) -> float:
+        ego_rew = 0.0
+        rews = self.n_step(actions, True)
+        ego_rew += rews[self.ego_ind] if self.ego_moved else self.total_rews[self.ego_ind]
+        return ego_rew
 
     def reset(self) -> Union[Observation, Any]:
         """
@@ -395,12 +401,17 @@ class SimultaneousEnv(MultiAgentEnv, ABC):
     def n_step(
                     self,
                     actions: List[np.ndarray],
+                    dr=False
                 ) -> Tuple[Tuple[int, ...],
                            Tuple[Optional[Observation], ...],
                            Tuple[float, ...],
                            bool,
                            Dict]:
-        (obs0, obs1), r, d, i = self.multi_step(actions[0], actions[1])
+        if dr:
+            r = self.multi_step(actions[0], actions[1], dr)
+            return r
+        else:
+            (obs0, obs1), r, d, i = self.multi_step(actions[0], actions[1], dr)
         return ((0, 1), (Observation(obs0), Observation(obs1)), r, d, i)
 
     def n_reset(self) -> Tuple[Tuple[int, ...],

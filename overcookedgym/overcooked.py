@@ -4,6 +4,7 @@ import cv2
 import pygame
 import copy
 import numpy as np
+import copy
 from overcookedgym.overcooked_ai.src.overcooked_ai_py.mdp.actions import Action
 from overcookedgym.overcooked_ai.src.overcooked_ai_py.mdp.overcooked_mdp import OvercookedGridworld
 from overcookedgym.overcooked_ai.src.overcooked_ai_py.mdp.overcooked_env import OvercookedEnv
@@ -44,6 +45,7 @@ class OvercookedMultiEnv(SimultaneousEnv):
         self.lA = len(Action.ALL_ACTIONS)
         self.action_space  = gym.spaces.Discrete( self.lA )
         self.ego_agent_idx = ego_agent_idx
+        self.teammate_action = 0
 
         self.visualizer = StateVisualizer()
         self.multi_reset()
@@ -57,8 +59,21 @@ class OvercookedMultiEnv(SimultaneousEnv):
     
     def get_game_stats(self):
         return self.base_env.game_stats
+    
+    def __deepcopy__(self, memo):
+        print('copying')
+        cls = self.__class__
+        result = cls.__new__(cls)
+        memo[id(self)] = result
+        for k, v in self.__dict__.items():
+            print(k)
+            if k == 'visualizer':  # Skip pickling the font object
+                result.visualizer = None 
+            else:
+                setattr(result, k, copy.deepcopy(v, memo))
+        return result
 
-    def multi_step(self, ego_action, alt_action):
+    def multi_step(self, ego_action, alt_action, dr=False):
         """
         action:
             (agent with index self.agent_idx action, other agent action)
@@ -74,7 +89,16 @@ class OvercookedMultiEnv(SimultaneousEnv):
         else:
             joint_action = (alt_action, ego_action)
 
-        next_state, reward, done, info = self.base_env.step(joint_action)
+        if dr:
+            env_copy = copy.deepcopy(self.base_env)
+            next_state, reward, done, info = env_copy.step(joint_action)
+            # reward shaping
+            rew_shape = info['shaped_r_by_agent'][self.ego_agent_idx]
+            reward = reward + rew_shape
+            del env_copy
+            return (reward, reward)
+        else:
+            next_state, reward, done, info = self.base_env.step(joint_action)
 
         # reward shaping
         rew_shape = info['shaped_r_by_agent'][self.ego_agent_idx]
@@ -144,7 +168,9 @@ class OvercookedMultiEnv(SimultaneousEnv):
             else:
                 p = self._get_partner_num(player)
                 agent = self.partners[p][self.partnerids[p]]
-                actions.append(agent.get_action(self.mdp, self.base_env.state, player))
+                teammate_act = agent.get_action(self.mdp, self.base_env.state, player)
+                actions.append(teammate_act)
+                self.teammate_action = teammate_act
                 if not self.should_update[p]:
                     agent.update(self.total_rews[player], False)
                 self.should_update[p] = True

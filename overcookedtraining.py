@@ -40,9 +40,9 @@ class TensorboardCallback(BaseCallback):
 layout = 'simple_o_t'
 assert layout in LAYOUT_LIST
 num_runs = 1
-partner_types = ['place_tomato_in_pot', 'place_onion_in_pot', 'deliver_soup', 'put_dish_everywhere', 'put_onion_everywhere', 'put_tomato_everywhere']
+partner_types = ['place_tomato_in_pot']#, 'place_onion_in_pot', 'deliver_soup', 'put_dish_everywhere', 'put_onion_everywhere', 'put_tomato_everywhere']
 
-for r in num_runs:
+for r in range(num_runs):
     for p in partner_types:
         # Since pantheonrl's MultiAgentEnv is a subclass of the gym Env, you can
         # register an environment and construct it using gym.make.
@@ -55,7 +55,7 @@ for r in num_runs:
         env.reset()
 
         # Finally, you can construct an ego agent and train it in the environment
-        tensorboard_dir=f"experiments/ra-l/overcooked/runs/ppo-with-{p}/"
+        tensorboard_dir=f"experiments/ra-l/{layout}/ppo-with-{p}/"
         ego = PPO('MlpPolicy', env, verbose=0, tensorboard_log=tensorboard_dir+f"run{r}/")
         ego.learn(total_timesteps=1_000_000, progress_bar=True, tb_log_name="ppo_run", callback=TensorboardCallback())
 

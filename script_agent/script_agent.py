@@ -21,6 +21,7 @@ class RandomScriptAgent(BaseScriptAgent):
         self.period_name = [p for p in periods_config.keys()]
         self.probs = np.array([d["prob"] for p, d in periods_config.items()])
         self.probs /= self.probs.sum()
+        #self._current_period_name, self._current_period = self.make_new_period()
 
     def make_new_period(self, i=None):
         if i is None:
@@ -34,6 +35,7 @@ class RandomScriptAgent(BaseScriptAgent):
 
     def reset(self, mdp, state, player_idx):
         """reset state"""
+        #print('reset script agent')
         self._current_period_name, self._current_period = self.make_new_period()
         self._current_period.reset(mdp, state, player_idx)
         self.last_pos = state.players[player_idx].position
