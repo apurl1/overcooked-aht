@@ -256,7 +256,7 @@ class Pickup_Ingredient_and_Place_Mix(BaseScriptPeriod):
             # print(self.__current_period.target_obj, self.target_obj)
             if self.__current_period.done(mdp, state, player_idx):
                 assert player.has_object() and player.get_object().name in self.target_obj
-                self.__stage = 2
+                self.__stage += 1
                 if player.get_object().name == "onion":
                     obj = ["unfull_soup_t", "unfull_soup_ot"]
                 elif player.get_object().name == "tomato":
@@ -269,7 +269,7 @@ class Pickup_Ingredient_and_Place_Mix(BaseScriptPeriod):
         current_obj = player.get_object().name
         assert current_obj in ["onion", "tomato"]
         if current_obj == "onion":
-            if utils.exists(mdp, state, player_idx, "P", ["unfull_soup_1t"]):
+            if utils.exists(mdp, state, player_idx, "P", ["unfull_soup_t"]):
                 action, self.__put_pos = utils.interact(
                     mdp,
                     state,
@@ -277,7 +277,7 @@ class Pickup_Ingredient_and_Place_Mix(BaseScriptPeriod):
                     pre_goal=self.__put_pos,
                     random=self.random_put,
                     terrain_type="P",
-                    obj=["unfull_soup_1t"],
+                    obj=["unfull_soup_t"],
                 )
                 return action
             elif utils.exists(mdp, state, player_idx, "P", ["empty"]):
@@ -292,7 +292,7 @@ class Pickup_Ingredient_and_Place_Mix(BaseScriptPeriod):
                 )
                 return action
         else:
-            if utils.exists(mdp, state, player_idx, "P", ["unfull_soup_1o"]):
+            if utils.exists(mdp, state, player_idx, "P", ["unfull_soup_o"]):
                 action, self.__put_pos = utils.interact(
                     mdp,
                     state,
@@ -300,7 +300,7 @@ class Pickup_Ingredient_and_Place_Mix(BaseScriptPeriod):
                     pre_goal=self.__put_pos,
                     random=self.random_put,
                     terrain_type="P",
-                    obj=["unfull_soup_1o"],
+                    obj=["unfull_soup_o"],
                 )
                 return action
             elif utils.exists(mdp, state, player_idx, "P", ["empty"]):
@@ -704,7 +704,7 @@ class Pickup_Soup(BaseScriptPeriod):
 
     def reset(self, mdp, state, player_idx):
         self.__stage = 1
-        if utils.exists(mdp, state, player_idx, terrain_type="X", obj="soup"):
+        if utils.exists(mdp, state, player_idx, terrain_type="XP", obj="soup"):
             #  if there are soups on table, take that on table
             self.__current_period = Pickup_Object(
                 obj="soup",
@@ -726,15 +726,17 @@ class Pickup_Soup(BaseScriptPeriod):
         if self.__stage == 1:
             if self.__current_period.done(mdp, state, player_idx):
                 assert player.has_object() and player.get_object().name == "dish"
+                print("picked up dish")
                 self.__stage = 2
                 # this is a quick hack to use put as pickup soup
                 self.__current_period = Put_Object(
                     terrain_type="P",
                     random_put=self.random_soup,
-                    obj=["soup", "cooking_soup"],
+                    obj=["soup", "cooking_soup", "unfull_soup_ot"],
                 )
             else:
                 return self.__current_period.step(mdp, state, player_idx)
+        print("picking up soup")
         return self.__current_period.step(mdp, state, player_idx)
 
     def done(self, mdp, state, player_idx):
@@ -759,19 +761,22 @@ class Pickup_Soup_and_Deliver(BaseScriptPeriod):
     def step(self, mdp, state, player_idx):
         player = state.players[player_idx]
 
-        if self.__stage == 1:
+        if self.__stage == 2:
             if self.__current_period.done(mdp, state, player_idx):
                 assert player.has_object() and player.get_object().name == "soup"
-                self.__stage = 2
+                print("picked up soup")
+                self.__stage = 3
                 # this is a quick hack to use put as deliver
                 self.__current_period = Put_Object(terrain_type="S", random_put=False)
             else:
                 return self.__current_period.step(mdp, state, player_idx)
+        print("delivering")
         return self.__current_period.step(mdp, state, player_idx)
 
     def done(self, mdp, state, player_idx):
-        state.players[player_idx]
-        return self.__stage == 2 and self.__current_period.done(mdp, state, player_idx)
+        # player = state.players[player_idx]
+        # return self.__stage == 2 and not player.has_object()
+        return self.__stage == 3 and self.__current_period.done(mdp, state, player_idx)
 
 
 class Pickup_Soup_and_Place_Random(BaseScriptPeriod):
@@ -821,6 +826,7 @@ SCRIPT_PERIODS_CLASSES = {
     "put_tomato_everywhere": Put_Tomato_Everywhere,
     "put_dish_everywhere": Put_Dish_Everywhere,
     "pickup_tomato_and_place_mix": Pickup_Tomato_and_Place_Mix,
+    "pickup_onion_and_place_mix": Pickup_Onion_and_Place_Mix,
     "pickup_ingredient_and_place_mix": Pickup_Ingredient_and_Place_Mix,
     "mixed_order": Mixed_Order,
 }

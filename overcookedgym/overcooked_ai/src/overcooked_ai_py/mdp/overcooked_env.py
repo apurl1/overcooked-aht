@@ -2,8 +2,8 @@ import copy
 import time
 
 import cv2
-import gym
-import gymnasium
+#import gym
+import gymnasium as gym
 import numpy as np
 import pygame
 import tqdm
@@ -285,7 +285,7 @@ class OvercookedEnv(object):
             self._add_episode_info(env_info)
 
         timestep_sparse_reward = sum(mdp_infos["sparse_reward_by_agent"])
-        return (next_state, timestep_sparse_reward, done, env_info)
+        return (next_state, timestep_sparse_reward, done, False, env_info)
 
     def lossless_state_encoding_mdp(self, state):
         """
@@ -896,7 +896,7 @@ class Overcooked(gym.Env):
             "overcooked_state": next_state,
             "other_agent_env_idx": 1 - self.agent_idx,
         }
-        return obs, reward, done, env_info
+        return obs, reward, done, False, env_info
 
     def reset(self):
         """

@@ -1024,6 +1024,16 @@ BASE_REW_SHAPING_PARAMS = {
     "SOUP_DISTANCE_REW": 0,
 }
 
+MIXED_REW_SHAPING_PARAMS = {
+    "ONION_PLACEMENT_IN_POT_REW": 3,
+    "TOMATO_PLACEMENT_IN_POT_REW": 3,
+    "DISH_PICKUP_REWARD": 3,
+    "SOUP_PICKUP_REWARD": 5,
+    "DISH_DISP_DISTANCE_REW": 0,
+    "POT_DISTANCE_REW": 0,
+    "SOUP_DISTANCE_REW": 0,
+}
+
 EVENT_TYPES = [
     # Tomato events
     "tomato_pickup",
@@ -1552,9 +1562,14 @@ class OvercookedGridworld(object):
                         old_soup = soup.deepcopy()
                         obj = player.remove_object()
                         soup.add_ingredient(obj)
-                        shaped_reward[
-                            player_idx
-                        ] += self.reward_shaping_params["PLACEMENT_IN_POT_REW"]
+                        if obj.name == Recipe.ONION:
+                            shaped_reward[
+                                player_idx
+                            ] += self.reward_shaping_params["ONION_PLACEMENT_IN_POT_REW"]
+                        elif obj.name == Recipe.TOMATO:
+                            shaped_reward[
+                                player_idx
+                            ] += self.reward_shaping_params["TOMATO_PLACEMENT_IN_POT_REW"]
 
                         # Log potting
                         self.log_object_potting(
@@ -1565,8 +1580,6 @@ class OvercookedGridworld(object):
                             obj.name,
                             player_idx,
                         )
-                        if obj.name == Recipe.ONION:
-                            events_infos["potting_onion"][player_idx] = True
 
             elif terrain_type == "S" and player.has_object():
                 obj = player.get_object()

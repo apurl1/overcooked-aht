@@ -2,7 +2,7 @@ from abc import ABC, abstractmethod
 from typing import List, Tuple, Dict, Optional, Callable, Any, Union
 from dataclasses import dataclass
 
-import gym
+import gymnasium as gym
 import numpy as np
 
 from .agents import Agent
@@ -20,6 +20,26 @@ class DummyEnv(gym.Env):
     """
     observation_space: gym.spaces.Space
     action_space: gym.spaces.Space
+
+PHI_EVENT_TYPES = [
+    "potting_tomato",
+    "potting_onion",
+    "useful_dish_pickup",
+    "soup_pickup",
+    "soup_delivery",
+]
+PHI_DIM = len(PHI_EVENT_TYPES)
+
+def phi(info, info_next):
+    phi_vec = np.zeros(len(PHI_EVENT_TYPES))
+    for i, et in enumerate(PHI_EVENT_TYPES):
+        if info:
+            phi_old = len(info[et][0]) + len(info[et][1])
+        else:
+            phi_old = 0
+        phi_new = len(info_next[et][0]) + len(info_next[et][1])
+        phi_vec[i] = phi_new - phi_old
+    return phi_vec
 
 
 class MultiAgentEnv(gym.Env, ABC):
@@ -189,7 +209,8 @@ class MultiAgentEnv(gym.Env, ABC):
             done: Whether the episode has ended (need to call reset() if True)
             info: Extra information about the environment
         """
-        ego_rew = 0.0
+        # ego_rew = 0.0
+        ego_rew = np.zeros(PHI_DIM)
 
         while True:
             acts = self._get_actions(self._players, self._obs, action)
@@ -198,21 +219,20 @@ class MultiAgentEnv(gym.Env, ABC):
 
             self._update_players(rews, done)
 
-            ego_rew += rews[self.ego_ind] if self.ego_moved else self.total_rews[self.ego_ind]
-            #ego_rew += np.sum(rews)
+            ego_rew += rews[self.ego_ind] #if self.ego_moved else self.total_rews[self.ego_ind]
 
             self.ego_moved = True
 
             if done:
                 ego_obs = self._old_ego_obs
-                return self.ego_extractor(ego_obs), ego_rew, done, info
+                return self.ego_extractor(ego_obs), ego_rew, done, False, info
 
             if self.ego_ind in self._players:
                 break
 
         ego_obs = self._obs[self._players.index(self.ego_ind)]
         self._old_ego_obs = ego_obs
-        return self.ego_extractor(ego_obs), ego_rew, done, info
+        return self.ego_extractor(ego_obs), ego_rew, done, False, info
     
     def step_dr(self, actions: np.ndarray) -> float:
         ego_rew = 0.0
@@ -220,13 +240,14 @@ class MultiAgentEnv(gym.Env, ABC):
         ego_rew += rews[self.ego_ind] if self.ego_moved else self.total_rews[self.ego_ind]
         return ego_rew
 
-    def reset(self) -> Union[Observation, Any]:
+    def reset(self, seed=None, options={}) -> Union[Observation, Any]:
         """
         Reset environment to an initial state and return the first observation
         for the ego agent.
 
         :returns: Ego-agent's first observation
         """
+        super().reset(seed=seed, options=options)
         self.resample_partner()
         self._players, self._obs = self.n_reset()
         self.should_update = [False] * (self.n_players - 1)
@@ -246,7 +267,7 @@ class MultiAgentEnv(gym.Env, ABC):
 
         assert ego_obs is not None
         self._old_ego_obs = ego_obs
-        return self.ego_extractor(ego_obs)
+        return self.ego_extractor(ego_obs), {}
 
     @abstractmethod
     def n_step(

@@ -208,6 +208,9 @@ SCRIPT_AGENTS = {
     "pickup_tomato_and_place_mix": functools.partial(
         SinglePeriodScriptAgent, period_name="pickup_tomato_and_place_mix"
     ),
+    "pickup_onion_and_place_mix": functools.partial(
+        SinglePeriodScriptAgent, period_name="pickup_onion_and_place_mix"
+    ),
     "pickup_ingredient_and_place_mix": functools.partial(
         SinglePeriodScriptAgent, period_name="pickup_ingredient_and_place_mix"
     ),

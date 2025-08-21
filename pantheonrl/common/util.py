@@ -3,8 +3,8 @@ from typing import Tuple, Union
 import numpy as np
 import torch as th
 
-import gym
-from gym.spaces import Box, Discrete, MultiBinary, MultiDiscrete, Space
+import gymnasium as gym
+from gymnasium.spaces import Box, Discrete, MultiBinary, MultiDiscrete, Space
 
 from stable_baselines3.common.base_class import BaseAlgorithm
 from stable_baselines3.common import policies

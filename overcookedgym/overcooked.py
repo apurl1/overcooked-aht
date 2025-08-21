@@ -1,4 +1,4 @@
-import gym
+import gymnasium as gym
 
 import cv2
 import pygame
@@ -13,6 +13,26 @@ from overcookedgym.overcooked_ai.src.overcooked_ai_py.visualization.state_visual
 
 from pantheonrl.common.multiagentenv import SimultaneousEnv
 
+PHI_EVENT_TYPES = [
+    "potting_tomato",
+    "potting_onion",
+    "useful_dish_pickup",
+    "soup_pickup",
+    "soup_delivery",
+]
+PHI_DIM = len(PHI_EVENT_TYPES)
+
+def phi(info, info_next):
+    phi_vec = np.zeros(len(PHI_EVENT_TYPES))
+    for i, et in enumerate(PHI_EVENT_TYPES):
+        if info:
+            phi_old = len(info[et][0]) + len(info[et][1])
+        else:
+            phi_old = 0
+        phi_new = len(info_next[et][0]) + len(info_next[et][1])
+        phi_vec[i] = phi_new - phi_old
+    return phi_vec
+
 class OvercookedMultiEnv(SimultaneousEnv):
     def __init__(self, layout_name, ego_agent_idx=0, baselines=False):
         """
@@ -22,10 +42,13 @@ class OvercookedMultiEnv(SimultaneousEnv):
         super(OvercookedMultiEnv, self).__init__()
 
         DEFAULT_ENV_PARAMS = {
-            "horizon": 400
+            "horizon": 400,
+            "info_level": 0,
+            "num_mdp": 1,
         }
         rew_shaping_params = {
-            "PLACEMENT_IN_POT_REW": 3,
+            "ONION_PLACEMENT_IN_POT_REW": 3,
+            "TOMATO_PLACEMENT_IN_POT_REW": 3,
             "DISH_PICKUP_REWARD": 3,
             "SOUP_PICKUP_REWARD": 5,
             "DISH_DISP_DISTANCE_REW": 0,
@@ -33,11 +56,13 @@ class OvercookedMultiEnv(SimultaneousEnv):
             "SOUP_DISTANCE_REW": 0,
         }
 
-        self.mdp = OvercookedGridworld.from_layout_name(layout_name=layout_name, rew_shaping_params=rew_shaping_params)
+        self.mdp = OvercookedGridworld.from_layout_name(layout_name=layout_name, rew_shaping_params=rew_shaping_params, old_dynamics=False)
         mlap = MediumLevelActionManager.from_pickle_or_compute(self.mdp, NO_COUNTERS_PARAMS, force_compute=False)
 
         self.base_env = OvercookedEnv.from_mdp(self.mdp, **DEFAULT_ENV_PARAMS)
-        self.featurize_fn = lambda x: self.mdp.featurize_state(x, mlap)
+        self.num_envs = 1
+        #self.featurize_fn = lambda x: self.mdp.featurize_state(x, mlap)
+        self.featurize_fn = lambda x: self.mdp.lossless_state_encoding(x)
 
         if baselines: np.random.seed(0)
 
@@ -49,6 +74,7 @@ class OvercookedMultiEnv(SimultaneousEnv):
 
         self.visualizer = StateVisualizer()
         self.multi_reset()
+        self.cur_game_stats = self.get_game_stats()
 
     def _setup_observation_space(self):
         dummy_state = self.mdp.get_standard_start_state()
@@ -91,18 +117,24 @@ class OvercookedMultiEnv(SimultaneousEnv):
 
         if dr:
             env_copy = copy.deepcopy(self.base_env)
-            next_state, reward, done, info = env_copy.step(joint_action)
+            next_state_copy, reward_copy, terminated_copy, truncated_copy, info_copy = env_copy.step(joint_action)
             # reward shaping
-            rew_shape = info['shaped_r_by_agent'][self.ego_agent_idx]
-            reward = reward + rew_shape
+            rew_sparse_copy = np.sum(info_copy['sparse_r_by_agent'])
+            rew_shape_copy = np.sum(info_copy['shaped_r_by_agent'])
+            reward_copy = rew_sparse_copy + rew_shape_copy
             del env_copy
-            return (reward, reward)
+            return (reward_copy, reward_copy)
         else:
-            next_state, reward, done, info = self.base_env.step(joint_action)
+            game_stats_prev = copy.deepcopy(self.cur_game_stats)
+            next_state, reward, terminated, truncated, info = self.base_env.step(joint_action)
+            self.cur_game_stats = self.get_game_stats()
+            reward = phi(game_stats_prev, self.cur_game_stats)
+            done = terminated or truncated
 
         # reward shaping
-        rew_shape = info['shaped_r_by_agent'][self.ego_agent_idx]
-        reward = reward + rew_shape
+        # rew_sparse = np.sum(info['sparse_r_by_agent'])
+        # rew_shape = np.sum(info['shaped_r_by_agent'])
+        # reward = rew_sparse + rew_shape
 
         #print(self.base_env.mdp.state_string(next_state))
         ob_p0, ob_p1 = self.featurize_fn(next_state)
