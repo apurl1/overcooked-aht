@@ -1,24 +1,8 @@
 import torch
 import torch.nn as nn
 from torch import Tensor
-import torch.nn.functional as F
 
-class CNN(nn.Module):
-    def __init__(self, input_channels, output_size):
-        super(CNN, self).__init__()
-        self.conv1 = nn.Conv2d(input_channels, 32, kernel_size=3, stride=1, padding=1)
-        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1)
-        self.conv3 = nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1)
-        self.flatten = nn.Flatten()
-        self.linear = nn.Linear(128 * 5 * 5, output_size)
 
-    def forward(self, x):
-        x = F.relu(self.conv1(x))
-        x = F.relu(self.conv2(x))
-        x = F.relu(self.conv3(x))
-        x = self.flatten(x)
-        x = F.relu(self.linear(x))
-        return x
 class NNet(nn.Module):
     def __init__(self, input_size: int, action_dim: int, feature_dim: int):
         """creates a neural network with linear layers and ReLU activation
@@ -53,6 +37,38 @@ class NNet(nn.Module):
             Tensor: predicted values with shape (128, action_dim, features_dim)
         """
         x = x.view(-1, self.input_size).float()
-        #print(x.shape)
         output: Tensor = self.model(x)
         return output.view([output.shape[0], self.action_dim, self.feature_dim])
+
+
+class PsiNet(nn.Module):
+    def __init__(self, input_size: int, action_dim: int, feature_dim: int):
+        """neural networks for psi representation
+
+        Args:
+            input_size (int): size of state obs from env
+            action_dim (int): size of env action space
+            feature_dim (int): number of eatures
+        """
+        super(PsiNet, self).__init__()
+        self.input_size = input_size
+        self.action_dim = action_dim
+        self.feature_dim = feature_dim
+        # one network for each feature
+        self.nets = nn.ModuleList(
+            [NNet(self.input_size, self.action_dim, 1) for i in range(self.feature_dim)]
+        )
+
+    def forward(self, x: Tensor) -> Tensor:
+        """predict psi values given state input
+
+        Args:
+            x (Tensor): state obs from env
+
+        Returns:
+            Tensor: predicted values with shape
+        """
+        outputs = []
+        for i in range(self.feature_dim):
+            outputs.append(self.nets[i](x))
+        return torch.cat(outputs, dim=2)
