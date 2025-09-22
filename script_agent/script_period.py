@@ -726,7 +726,7 @@ class Pickup_Soup(BaseScriptPeriod):
         if self.__stage == 1:
             if self.__current_period.done(mdp, state, player_idx):
                 assert player.has_object() and player.get_object().name == "dish"
-                print("picked up dish")
+                #print("picked up dish")
                 self.__stage = 2
                 # this is a quick hack to use put as pickup soup
                 self.__current_period = Put_Object(
@@ -736,7 +736,7 @@ class Pickup_Soup(BaseScriptPeriod):
                 )
             else:
                 return self.__current_period.step(mdp, state, player_idx)
-        print("picking up soup")
+        #print("picking up soup")
         return self.__current_period.step(mdp, state, player_idx)
 
     def done(self, mdp, state, player_idx):
@@ -761,22 +761,22 @@ class Pickup_Soup_and_Deliver(BaseScriptPeriod):
     def step(self, mdp, state, player_idx):
         player = state.players[player_idx]
 
-        if self.__stage == 2:
+        if self.__stage == 1:
             if self.__current_period.done(mdp, state, player_idx):
                 assert player.has_object() and player.get_object().name == "soup"
-                print("picked up soup")
-                self.__stage = 3
+                #print("picked up soup")
+                self.__stage = 2
                 # this is a quick hack to use put as deliver
                 self.__current_period = Put_Object(terrain_type="S", random_put=False)
             else:
                 return self.__current_period.step(mdp, state, player_idx)
-        print("delivering")
+        #print("delivering")
         return self.__current_period.step(mdp, state, player_idx)
 
     def done(self, mdp, state, player_idx):
         # player = state.players[player_idx]
         # return self.__stage == 2 and not player.has_object()
-        return self.__stage == 3 and self.__current_period.done(mdp, state, player_idx)
+        return self.__stage == 2 and self.__current_period.done(mdp, state, player_idx)
 
 
 class Pickup_Soup_and_Place_Random(BaseScriptPeriod):

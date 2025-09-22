@@ -61,8 +61,8 @@ class OvercookedMultiEnv(SimultaneousEnv):
 
         self.base_env = OvercookedEnv.from_mdp(self.mdp, **DEFAULT_ENV_PARAMS)
         self.num_envs = 1
-        #self.featurize_fn = lambda x: self.mdp.featurize_state(x, mlap)
-        self.featurize_fn = lambda x: self.mdp.lossless_state_encoding(x)
+        self.featurize_fn = lambda x: self.mdp.featurize_state(x, mlap)
+        # self.featurize_fn = lambda x: self.mdp.lossless_state_encoding(x)
 
         if baselines: np.random.seed(0)
 

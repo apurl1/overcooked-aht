@@ -69,6 +69,7 @@ def get_dr(env, ac_dim):
     p = env.unwrapped.partners[0][0].get_action(env.unwrapped.mdp, env.unwrapped.base_env.state, 1)
     for a in range(ac_dim):
         rewards[a] = env.unwrapped.step_dr(actions=np.array([a, p]))
+    #print(rewards)
     return np.mean(rewards)
 
 def get_ppo_vals():
@@ -150,9 +151,9 @@ def compute_w_dr():
     layout = 'simple_o_t'
     assert layout in LAYOUT_LIST
     num_runs = 1
-    partner_types = ['pickup_tomato_and_place_mix', 'pickup_onion_and_place_mix']
+    partner_types = ['deliver_soup', 'pickup_tomato_and_place_mix', 'pickup_onion_and_place_mix']
     w_team = np.array([3.0, 3.0, 3.0, 5.0, 20.0])
-    episodes = 50
+    episodes = 5
 
     for r in range(num_runs):
         for p in partner_types:
@@ -164,7 +165,8 @@ def compute_w_dr():
             partner = SCRIPT_AGENTS[p]()
             env.unwrapped.add_partner_agent(partner)
             env.reset()
-            ego = SFDQN.load(tensorboard_dir + "model")
+            ego = SFDQN.load(tensorboard_dir + "best_model")
+            # ego = DQN.load(tensorboard_dir + "model")
             ego.psi_net.set_w(torch.from_numpy(w_team))
             # print(ego.psi_net.get_w())
 
@@ -181,9 +183,10 @@ def compute_w_dr():
 
                     # step env with selected action
                     obs_next, rew, terminated, truncated, info_next = env.step(action)
+                    #print(rew)
                     game_stats = env.unwrapped.get_game_stats()
                     #print(np.sum(rew), dr)
-                    y.append(np.sum(rew) - dr)
+                    y.append(np.dot(rew, w_team) - dr)
                     X.append(phi(game_stats_prev, game_stats))
 
                     if terminated or truncated:
@@ -193,7 +196,7 @@ def compute_w_dr():
             w = LinearRegression().fit(X, y)
             print(w.score(X, y))
             print(w.coef_)
-            np.save(tensorboard_dir + 'w-sf.npy', np.array(w.coef_))
+            np.save(tensorboard_dir + 'w.npy', np.array(w.coef_))
 
 def tune_q_net():
     layout = 'simple_o_t'
@@ -435,7 +438,7 @@ def zero_shot():
     assert layout in LAYOUT_LIST
     pretrained_partners = ['pickup_onion_and_place_mix', 'pickup_tomato_and_place_mix']
     partner_type = 'deliver_soup'
-    episodes = 1
+    episodes = 100
     env = gym.make('OvercookedMultiEnv-v1', layout_name=layout)
     tensorboard_dir=f"experiments/aaai/{layout}/zeroshot-with-{partner_type}/"
     print(tensorboard_dir)
@@ -450,8 +453,8 @@ def zero_shot():
         }
     )
     pretrained_agents = []
-    factor = [583.83, 609.93]
-    # factor = [1.0, 1.0]
+    # factor = [583.83, 609.93] 571.47
+    factor = [1.0, 1.0]
     for pt in pretrained_partners:
         pt_dir = f"experiments/aaai/{layout}/sfdqn-with-{pt}/"
         w = np.load(pt_dir + 'w.npy')
@@ -465,7 +468,7 @@ def zero_shot():
     tot_rew = []
     pol_used = np.zeros(len(pretrained_agents))
     actions_taken = np.zeros(6)
-    for _ in range(episodes):
+    for _ in tqdm(range(episodes)):
         obs, _ = env.reset()
         done = False
         ep_rew = 0.0
@@ -482,15 +485,15 @@ def zero_shot():
             loc = torch.argmax(q_vals).item()
             action = loc % 6
             idx = loc // 6
-            if idx != idx_prev:
-                if cur_pol_steps < 5:
-                    idx = idx_prev
-                    action = torch.argmax(q_vals).item() % 6
-                else:
-                    cur_pol_steps = 0
-                cur_pol_steps += 1
-            if idx == idx_prev:
-                cur_pol_steps += 1
+            # if idx != idx_prev:
+            #     if cur_pol_steps < 5:
+            #         idx = idx_prev
+            #         action = torch.argmax(q_vals).item() % 6
+            #     else:
+            #         cur_pol_steps = 0
+            #     cur_pol_steps += 1
+            # if idx == idx_prev:
+            #     cur_pol_steps += 1
             pol_used[idx] += 1
             obs, r, terminated, truncated, info = env.step(action)
             actions_taken[action] += 1
@@ -520,10 +523,65 @@ def zero_shot():
         vvw.write(env.render())
     
     print(np.mean(np.array(tot_rew)), np.std(np.array(tot_rew)))
-    print(tot_rew)
-    print(pol_used)
-    print(actions_taken)
+    # print(tot_rew)
+    # print(pol_used)
+    # print(actions_taken)
+
+def baseline_zero_shot():
+    layout = 'simple_o_t'
+    assert layout in LAYOUT_LIST
+    pretrained_partners = ['pickup_onion_and_place_mix', 'pickup_tomato_and_place_mix']
+    partner_type = 'deliver_soup'
+    episodes = 100
+    env = gym.make('OvercookedMultiEnv-v1', layout_name=layout)
+    tensorboard_dir=f"experiments/aaai/{layout}/zeroshot-robust-with-{partner_type}/"
+    wandb.tensorboard.patch(root_logdir=tensorboard_dir)
+    wandb.init(
+        project="zeroshot-overcooked",
+        sync_tensorboard=True,
+        config={
+            "layout": layout,
+            "timesteps": episodes,
+            "partner_type": partner_type,
+            "method": "oracle",
+        }
+    )
+
+    partner = SCRIPT_AGENTS[partner_type]()
+    env.unwrapped.add_partner_agent(partner)
+    env.reset()
+    robust = '/Users/rupaln/Documents/uiuc/overcooked-aht/overcooked-aht/experiments/aaai/simple_o_t/robust/'
+    onion = '/Users/rupaln/Documents/uiuc/overcooked-aht/overcooked-aht/experiments/aaai/simple_o_t/sfdqn-with-pickup_onion_and_place_mix/'
+    tomato = '/Users/rupaln/Documents/uiuc/overcooked-aht/overcooked-aht/experiments/aaai/simple_o_t/sfdqn-with-pickup_tomato_and_place_mix/'
+    oracle = '/Users/rupaln/Documents/uiuc/overcooked-aht/overcooked-aht/experiments/aaai/simple_o_t/sfdqn-with-deliver_soup/'
+
+    ego = SFDQN.load(oracle + 'best_model')
+    ego.set_env(env)
+    tot_rew = []
+    for _ in tqdm(range(episodes)):
+        obs, _ = env.reset()
+        done = False
+        ep_rew = 0.0
+        while not done:
+            obs = obs.reshape((-1,) + ego.observation_space.shape)
+            action, _states = ego.predict(obs, deterministic=True)
+            obs, r, terminated, truncated, info = env.step(action.item())
+            ep_rew += (np.sum(info['sparse_r_by_agent']) + np.sum(info['shaped_r_by_agent']))
+            game_stats = env.unwrapped.get_game_stats()
+            wandb.log({"agent1/sparse": game_stats["cumulative_sparse_rewards_by_agent"][0],
+                        "agent2/sparse": game_stats["cumulative_sparse_rewards_by_agent"][1],
+                        "agent1/shaped": game_stats["cumulative_shaped_rewards_by_agent"][0],
+                        "agent2/shaped": game_stats["cumulative_shaped_rewards_by_agent"][1],
+                        "team/shaped": np.sum(game_stats["cumulative_shaped_rewards_by_agent"]),
+                        "team/sparse": np.sum(game_stats["cumulative_sparse_rewards_by_agent"])})
+            for et in EVENT_TYPES:
+                wandb.log({f"agent1/{et}": len(game_stats[et][0])})
+                wandb.log({f"agent2/{et}": len(game_stats[et][1])})
+            done = terminated or truncated
+        tot_rew.append(ep_rew)   
+    print(np.mean(np.array(tot_rew)), np.std(np.array(tot_rew)))
 
 if __name__ == "__main__":
     # compute_w_dr()
-    zero_shot()
+    # zero_shot()
+    baseline_zero_shot()
