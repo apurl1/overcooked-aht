@@ -85,17 +85,16 @@ class PsiNetwork(BasePolicy):
         self.psi_net = nn.ModuleList(
             [nn.Sequential(*create_mlp(self.features_dim, action_dim, self.net_arch, self.activation_fn)) for i in range(PHI_DIM)]
         )
-        self.w = torch.from_numpy(w).float()
+        self.w = torch.from_numpy(w).float().to(self.device)
     
     def get_w(self) -> torch.Tensor:
         return self.w
     
     def set_w(self, new_w: torch.Tensor) -> None:
-        self.w = new_w
+        self.w = new_w.to(self.device)
 
     def q_vals(self, obs: PyTorchObs) -> torch.Tensor:
         psi_values = self(obs)
-        # print(psi_values.shape, self.w.shape)
         q_values = torch.matmul(psi_values.float(), self.w.float())
         return q_values
     
@@ -499,7 +498,7 @@ def train_ego_agent():
             env = gym.make('OvercookedMultiEnv-v1', layout_name=layout)
             tensorboard_dir=f"experiments/aaai/{layout}/sfdqn-with-{p}/run{r}/"
             os.makedirs(tensorboard_dir, exist_ok=True)
-            
+
             wandb.init(
                 project="sfdqn-training-overcooked",
                 sync_tensorboard=True,
