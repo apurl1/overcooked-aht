@@ -5,6 +5,7 @@ To run this script, remember to first install overcooked
 via the instructions in the README.md
 """
 
+import os
 import gymnasium as gym
 import numpy as np
 import cv2
@@ -37,44 +38,34 @@ class TensorboardCallback(BaseCallback):
         for et in EVENT_TYPES:
             self.logger.record(f"agent1/{et}", len(game_stats[et][0]))
             self.logger.record(f"agent2/{et}", len(game_stats[et][1]))
-        # if self.num_timesteps % 399 == 0:
-        #     self.logger.dump(self.num_timesteps)
         return True
 
 layout = 'simple_o_t'
 assert layout in LAYOUT_LIST
-num_runs = 1
+num_runs = 10
 partner_types = ['pickup_onion_and_place_mix', 'pickup_tomato_and_place_mix']
-tensorboard_dir=f"experiments/aaai/{layout}/robust/"
-episodes = 2_000_000
+episodes = 2_500_000 * len(partner_types)
 
 for r in range(num_runs):
-    for i, p in enumerate(partner_types):
-        env = gym.make('OvercookedMultiEnv-v1', layout_name=layout)
-        #wandb.tensorboard.unpatch()
-        #wandb.tensorboard.patch(root_logdir=tensorboard_dir)
-        wandb.init(
-            # set the wandb project where this run will be logged
-            project="robust-learner-overcooked",
-            sync_tensorboard=True,
+    tensorboard_dir=f"experiments/aaai/{layout}/robust_test/run{r}/"
+    os.makedirs(tensorboard_dir, exist_ok=True)
+    env = gym.make('OvercookedMultiEnv-v1', layout_name=layout)
+    
+    wandb.init(
+        project="robust-learner-overcooked",
+        sync_tensorboard=True,
 
-            # track hyperparameters and run metadata
-            config={
-                "layout": layout,
-                "timesteps": episodes,
-                "partner_type": p,
-                "run_num": r,
-            }
-        )
+        config={
+            "layout": layout,
+            "timesteps": episodes,
+            "run_num": r,
+        }
+    )
 
+    for p in partner_types:
         partner = SCRIPT_AGENTS[p]()
         env.unwrapped.add_partner_agent(partner)
-        env.reset()
-        if i == 0:
-            ego = SFDQN('MlpPolicy', env, tensorboard_log=tensorboard_dir, verbose=0)
-        else:
-            ego = SFDQN.load(tensorboard_dir + "model")
-            ego.set_env(env)
-        print('training with ' + p)
-        ego.learn(total_timesteps=episodes, progress_bar=True, callback=TensorboardCallback())
-        ego.save(tensorboard_dir+ "model")
+    env.reset()
+    ego = SFDQN('MlpPolicy', env, tensorboard_log=tensorboard_dir, verbose=0)
+    ego.learn(total_timesteps=episodes, progress_bar=True, callback=TensorboardCallback())
+    ego.save(tensorboard_dir+ "model")

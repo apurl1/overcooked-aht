@@ -242,7 +242,7 @@ class SFDQN(OffPolicyAlgorithm):
         learning_starts: int = 100,
         batch_size: int = 32,
         tau: float = 1.0,
-        gamma: float = 0.9,
+        gamma: float = 0.95,
         train_freq: Union[int, tuple[int, str]] = 4,
         gradient_steps: int = 1,
         replay_buffer_class: Optional[type[ReplayBuffer]] = None,
@@ -488,24 +488,25 @@ class SaveOnBestTrainingRewardCallback(BaseCallback):
 def train_ego_agent():
     layout = 'simple_o_t'
     assert layout in LAYOUT_LIST
-    num_runs = 1
+    num_runs = 10
     partner_types = ['deliver_soup', 'pickup_tomato_and_place_mix', 'pickup_onion_and_place_mix']
+    gamma = 0.95
     episodes = 2_500_000
     w_team = np.array([3.0, 3.0, 3.0, 5.0, 20.0])
 
     for r in range(num_runs):
         for p in partner_types:
             env = gym.make('OvercookedMultiEnv-v1', layout_name=layout)
-            #wandb.tensorboard.unpatch()
-            tensorboard_dir=f"experiments/aaai/{layout}/sfdqn9-with-{p}/"
-            #wandb.tensorboard.patch(root_logdir=tensorboard_dir)
+            tensorboard_dir=f"experiments/aaai/{layout}/sfdqn-with-{p}/run{r}/"
+            os.makedirs(tensorboard_dir, exist_ok=True)
+            
             wandb.init(
                 project="sfdqn-training-overcooked",
                 sync_tensorboard=True,
                 config={
                     "layout": layout,
                     "timesteps": episodes,
-                    "gamma": 0.9,
+                    "gamma": 0.95,
                     "partner_type": p,
                     "run_num": r,
                 }
@@ -516,7 +517,7 @@ def train_ego_agent():
             env.reset()
             env = Monitor(env, tensorboard_dir)
 
-            ego = SFDQN('MlpPolicy', env, tensorboard_log=tensorboard_dir, verbose=0)
+            ego = SFDQN('MlpPolicy', env, tensorboard_log=tensorboard_dir, verbose=0, gamma=gamma)
             
             # Create the callback: check every 10,000 steps
             callback = SaveOnBestTrainingRewardCallback(check_freq=25_000, log_dir=tensorboard_dir)
