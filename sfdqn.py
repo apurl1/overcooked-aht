@@ -298,6 +298,10 @@ class SFDQN(OffPolicyAlgorithm):
 
         if _init_setup_model:
             self._setup_model()
+        print(self.policy.device)
+        self.policy.psi_net = self.policy.psi_net.to(self.policy.device)
+        self.policy.psi_net_target = self.policy.psi_net_target.to(self.policy.device)
+        print(self.policy.psi_net.device)
 
     def _setup_model(self) -> None:
         super()._setup_model()
@@ -488,15 +492,15 @@ def train_ego_agent():
     layout = 'simple_o_t'
     assert layout in LAYOUT_LIST
     num_runs = 10
-    partner_types = ['deliver_soup', 'pickup_tomato_and_place_mix', 'pickup_onion_and_place_mix']
+    partner_types = ['pickup_onion_and_place_mix']
     gamma = 0.95
     episodes = 2_500_000
     w_team = np.array([3.0, 3.0, 3.0, 5.0, 20.0])
 
-    for r in range(num_runs):
+    for run in [5, 6, 7, 8, 9]:
         for p in partner_types:
             env = gym.make('OvercookedMultiEnv-v1', layout_name=layout)
-            tensorboard_dir=f"experiments/aaai/{layout}/sfdqn-with-{p}/run{r}/"
+            tensorboard_dir=f"experiments/aaai/{layout}/sfdqn-with-{p}/run{run}/"
             os.makedirs(tensorboard_dir, exist_ok=True)
 
             wandb.init(
@@ -507,7 +511,7 @@ def train_ego_agent():
                     "timesteps": episodes,
                     "gamma": 0.95,
                     "partner_type": p,
-                    "run_num": r,
+                    "run_num": run,
                 }
             )
 
@@ -546,6 +550,7 @@ def train_ego_agent():
                     wandb.log({f"agent2/{et}": len(game_stats[et][1])})
 
             ego.save(tensorboard_dir+ "model")
+            wandb.finish()
 
 if __name__ == "__main__":
     train_ego_agent()
