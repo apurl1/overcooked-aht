@@ -1,10 +1,3 @@
-"""
-This is a simple example training script for PantheonRL.
-
-To run this script, remember to first install overcooked
-via the instructions in the README.md
-"""
-
 import os
 import gymnasium as gym
 import numpy as np
@@ -47,7 +40,7 @@ partner_types = ['pickup_onion_and_place_mix', 'pickup_tomato_and_place_mix']
 episodes = 2_500_000 * len(partner_types)
 
 for r in range(num_runs):
-    tensorboard_dir=f"experiments/aaai/{layout}/robust_test/run{r}/"
+    tensorboard_dir=f"experiments/{layout}/robust/run{r}/"
     os.makedirs(tensorboard_dir, exist_ok=True)
     env = gym.make('OvercookedMultiEnv-v1', layout_name=layout)
     
