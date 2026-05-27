@@ -500,11 +500,11 @@ def train_ego_agent():
     for run in [5, 6, 7, 8, 9]:
         for p in partner_types:
             env = gym.make('OvercookedMultiEnv-v1', layout_name=layout)
-            tensorboard_dir=f"experiments/aaai/{layout}/sfdqn-with-{p}/run{run}/"
+            tensorboard_dir=""
             os.makedirs(tensorboard_dir, exist_ok=True)
 
             wandb.init(
-                project="sfdqn-training-overcooked",
+                project="",
                 sync_tensorboard=True,
                 config={
                     "layout": layout,
