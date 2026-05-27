@@ -36,8 +36,6 @@ class TensorboardCallback(BaseCallback):
         for et in EVENT_TYPES:
             self.logger.record(f"agent1/{et}", len(game_stats[et][0]))
             self.logger.record(f"agent2/{et}", len(game_stats[et][1]))
-        # if self.num_timesteps % 399 == 0:
-        #     self.logger.dump(self.num_timesteps)
         return True
 
 layout = 'simple_o_t'
@@ -52,11 +50,11 @@ for r in range(num_runs):
         # register an environment and construct it using gym.make.
         env = gym.make('OvercookedMultiEnv-v1', layout_name=layout)
         #wandb.tensorboard.unpatch()
-        tensorboard_dir=f"experiments/aaai/{layout}/dqn-lossless-with-{p}/"
+        tensorboard_dir=f""
         #wandb.tensorboard.patch(root_logdir=tensorboard_dir)
         wandb.init(
             # set the wandb project where this run will be logged
-            project="dqn-lossless-training-overcooked",
+            project="",
             sync_tensorboard=True,
 
             # track hyperparameters and run metadata
@@ -75,7 +73,6 @@ for r in range(num_runs):
         env.reset()
 
         # Finally, you can construct an ego agent and train it in the environment
-        #ego = DQN('MlpPolicy', env, tensorboard_log=tensorboard_dir, verbose=0)
         ego = DQN('MlpPolicy', env, tensorboard_log=tensorboard_dir, verbose=0)
         ego.learn(total_timesteps=episodes, progress_bar=True, callback=TensorboardCallback())
 
