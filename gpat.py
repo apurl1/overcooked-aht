@@ -20,9 +20,6 @@ from models import NNet
 from tqdm import tqdm
 import wandb
 from sklearn.linear_model import LinearRegression
-# import imitation.data.rollout as rollout
-# from imitation.data import serialize
-# from imitation.data.huggingface_utils import trajectories_to_dataset
 
 PHI_EVENT_TYPES = [
     "potting_tomato",
@@ -69,7 +66,6 @@ def get_dr(env, ac_dim):
     p = env.unwrapped.partners[0][0].get_action(env.unwrapped.mdp, env.unwrapped.base_env.state, 1)
     for a in range(ac_dim):
         rewards[a] = env.unwrapped.step_dr(actions=np.array([a, p]))
-    #print(rewards)
     return np.mean(rewards)
 
 def get_ppo_vals():
@@ -131,7 +127,6 @@ def get_ppo_vals():
             if pol_counter > 5:
                 pol_counter = 0
             # step env with selected action
-            #action, _ = learner_new.predict(obs, deterministic=True)
             obs_next, rew, terminated, truncated, info_next = env.step(action)
             ep_rew += rew
             done = terminated or truncated
@@ -142,7 +137,6 @@ def get_ppo_vals():
                 vvw.write(env.render())
             obs = obs_next
             info = info_next
-        #print("gpat rew: ", ep_rew)
         rews.append(ep_rew)
     rew_arr = np.array(rews)
     print("avg rew: ", np.mean(rew_arr), "std rew: ", np.std(rew_arr))
@@ -166,9 +160,7 @@ def compute_w_dr():
             env.unwrapped.add_partner_agent(partner)
             env.reset()
             ego = SFDQN.load(tensorboard_dir + "best_model")
-            # ego = DQN.load(tensorboard_dir + "model")
             ego.psi_net.set_w(torch.from_numpy(w_team))
-            # print(ego.psi_net.get_w())
 
             for ep in tqdm(range(episodes), desc="agent-rollouts"):
                 obs, info = env.reset()
@@ -183,9 +175,7 @@ def compute_w_dr():
 
                     # step env with selected action
                     obs_next, rew, terminated, truncated, info_next = env.step(action)
-                    #print(rew)
                     game_stats = env.unwrapped.get_game_stats()
-                    #print(np.sum(rew), dr)
                     y.append(np.dot(rew, w_team) - dr)
                     X.append(phi(game_stats_prev, game_stats))
 
@@ -269,7 +259,7 @@ def compute_q_dr():
     num_runs = 1
     episodes = 1_000
     gamma = 0.95
-    base_model_dir = f"experiments/ijcai/{layout}/"
+    base_model_dir = ""
     lr = 1e-4
     prefs = ['place_onion_in_pot']#, 'place_onion_in_pot', 'deliver_soup', 'put_dish_everywhere', 'put_onion_everywhere', 'put_tomato_everywhere']
     env_str="OvercookedMultiEnv-v0"
@@ -328,9 +318,6 @@ def compute_q_dr():
                     # step env with selected action
                     obs_next, rew, done, truncated, info_next = env.step(action)
                     t += 1
-                    #print("ppo action: ", action)
-                    #print(env.mdp.state_string(env.base_env.state))
-                    #print("ppo rew: ", rew)
 
                     target = rew - dr
                     
@@ -349,7 +336,6 @@ def compute_q_dr():
                     next_action, _ = learner.predict(obs_next, deterministic=True)
                     action = torch.from_numpy(np.array([action])).view(-1)
                     next_action = torch.from_numpy(np.array([next_action])).view(-1)
-                    #print(torch.from_numpy(obs).unsqueeze(0).shape)
                     cur_q = qdr(torch.from_numpy(obs).unsqueeze(0)).squeeze(-1)[0, action]
                     next_q = target + gamma * qdr(torch.from_numpy(obs_next).unsqueeze(0)).squeeze(-1)[0, next_action]
                     loss = nn.MSELoss()(cur_q.float(), next_q.float())
@@ -364,7 +350,6 @@ def compute_q_dr():
                         break
                     obs = obs_next
                     info = info_next
-                    #done=True
                 wandb.log({"ep-rew": ep_rew, "ep-loss": ep_loss / t})
             torch.save(qdr, model_dir + f"{p}_qdr.torch")
     
@@ -384,7 +369,6 @@ def evaluate_q_dr():
         env.reset()
         qdr = torch.load(base_model_dir + p + "_qdr.torch")
         learner = QdrAgent(qdr)
-        #print(env.observation_space.shape[0], env.lA)
         tot_rew = []
         for ep in tqdm(range(episodes), desc="agent-rollouts"):
             ep_rew = 0.0
@@ -440,11 +424,10 @@ def zero_shot():
     partner_type = 'deliver_soup'
     episodes = 100
     env = gym.make('OvercookedMultiEnv-v1', layout_name=layout)
-    tensorboard_dir=f"experiments/aaai/{layout}/zeroshot-with-{partner_type}/"
-    print(tensorboard_dir)
+    tensorboard_dir=""
     wandb.tensorboard.patch(root_logdir=tensorboard_dir)
     wandb.init(
-        project="zeroshot-overcooked",
+        project="",
         sync_tensorboard=True,
         config={
             "layout": layout,
@@ -453,14 +436,12 @@ def zero_shot():
         }
     )
     pretrained_agents = []
-    # factor = [583.83, 609.93] 571.47
     factor = [1.0, 1.0]
     for pt in pretrained_partners:
-        pt_dir = f"experiments/aaai/{layout}/sfdqn-with-{pt}/"
+        pt_dir = ""
         w = np.load(pt_dir + 'w.npy')
         ego = SFDQN.load(pt_dir + "best_model")
         ego.psi_net.set_w(torch.from_numpy(w))
-        print(ego.policy.psi_net.w)
         pretrained_agents.append(ego)
     partner = SCRIPT_AGENTS[partner_type]()
     env.unwrapped.add_partner_agent(partner)
@@ -485,15 +466,6 @@ def zero_shot():
             loc = torch.argmax(q_vals).item()
             action = loc % 6
             idx = loc // 6
-            # if idx != idx_prev:
-            #     if cur_pol_steps < 5:
-            #         idx = idx_prev
-            #         action = torch.argmax(q_vals).item() % 6
-            #     else:
-            #         cur_pol_steps = 0
-            #     cur_pol_steps += 1
-            # if idx == idx_prev:
-            #     cur_pol_steps += 1
             pol_used[idx] += 1
             obs, r, terminated, truncated, info = env.step(action)
             actions_taken[action] += 1
@@ -521,11 +493,6 @@ def zero_shot():
         obs, r, terminated, truncated, info = env.step(action)
         done = terminated or truncated
         vvw.write(env.render())
-    
-    print(np.mean(np.array(tot_rew)), np.std(np.array(tot_rew)))
-    # print(tot_rew)
-    # print(pol_used)
-    # print(actions_taken)
 
 def baseline_zero_shot():
     layout = 'simple_o_t'
@@ -534,7 +501,7 @@ def baseline_zero_shot():
     partner_type = 'deliver_soup'
     episodes = 100
     env = gym.make('OvercookedMultiEnv-v1', layout_name=layout)
-    tensorboard_dir=f"experiments/aaai/{layout}/zeroshot-robust-with-{partner_type}/"
+    tensorboard_dir=""
     wandb.tensorboard.patch(root_logdir=tensorboard_dir)
     wandb.init(
         project="zeroshot-overcooked",
@@ -582,6 +549,6 @@ def baseline_zero_shot():
     print(np.mean(np.array(tot_rew)), np.std(np.array(tot_rew)))
 
 if __name__ == "__main__":
-    # compute_w_dr()
-    # zero_shot()
+    compute_w_dr()
+    zero_shot()
     baseline_zero_shot()
